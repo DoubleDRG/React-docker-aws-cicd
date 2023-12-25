@@ -1,0 +1,33 @@
+name: Deploy Frontend
+# 트리거 파트 (on 파트)
+on:
+  push:
+    branches:
+      - main
+
+# 수행 파트 (jobs 파트)
+jobs:
+  build: # 환경세팅 
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      # 
+      - run: echo "${{ secrets.DOCKER_PASSWORD}}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+      - run: docker build -t doubledrg/react-docker-gh-app -f Dockerfile.dev .
+      - run: docker run -e CI=true doubledrg/react-docker-gh-app npm test
+
+      - name: Generate deployment package
+      # 
+        run: zip -r deploy.zip . -x '*.git*'
+
+      - name: Deploy to EB
+        uses: einaregilsson/beanstalk-deploy@18
+        with:
+          aws_access_key: ${{ secrets.AWS_ACCESS_KEY }}
+          aws_secret_key: ${{ secrets.AWS_SECRET_KEY }}
+          application_name: react-docker-gh-test
+          environment_name: React-docker-gh-test-env
+          existing_bucket_name: elasticbeanstalk-ap-northeast-2-270238917308
+          region: ap-northeast-2
+          version_label: ${{ github.sha}}
+          deployment_package: deploy.zip
